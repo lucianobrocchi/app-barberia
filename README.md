@@ -1,73 +1,103 @@
-# React + TypeScript + Vite
+# ADDA App — Barbería Bacano
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SaaS de gestión para barberías (cliente piloto: Barbería Bacano, La Plata).
+App multi-barbero con panel de dueño (métricas, cierre de caja) y panel de
+barbero (registro de cortes).
 
-Currently, two official plugins are available:
+**Stack:** React 19 + Vite + TypeScript · Tailwind CSS · Supabase (Postgres +
+Auth + Realtime) · Zustand · React Router · Framer Motion · date-fns.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**En producción:** https://adda-app-ten.vercel.app
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Cómo correr el proyecto localmente
 
-## Expanding the ESLint configuration
+Necesitás [Node.js](https://nodejs.org) instalado (versión 20 o superior).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. Cloná el repo
+```bash
+git clone https://github.com/juancruzrabita-alt/adda-app.git
+cd adda-app
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Instalá las dependencias
+```bash
+npm install
+```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 3. Configurá las variables de entorno
+Creá un archivo llamado `.env.local` en la raíz del proyecto con las claves de
+Supabase. **Estas claves NO están en el repo** (por seguridad) — pediéselas a
+Juani por un canal privado. El formato es:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_xxx
+VITE_APP_NAME=ADDA App
+```
+
+> La variable `SUPABASE_SERVICE_ROLE_KEY` solo hace falta si vas a correr los
+> scripts de la carpeta `scripts/` (seeds, ajustes de datos). Para trabajar en
+> la app no la necesitás.
+
+### 4. Arrancá el servidor de desarrollo
+```bash
+npm run dev
+```
+Abrí la URL que aparece (normalmente http://localhost:5173).
+
+---
+
+## Comandos útiles
+
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo con recarga en caliente |
+| `npm run build` | Compila para producción (chequea tipos + bundle) |
+| `npm run preview` | Previsualiza el build de producción |
+| `npm run lint` | Corre ESLint |
+
+---
+
+## Trabajar de a dos (flujo git)
+
+```bash
+git pull                 # antes de empezar, traé lo último
+# ... editás ...
+git add -A
+git commit -m "qué cambiaste"
+git push                 # subís tus cambios
+```
+
+Para cambios grandes, conviene una rama aparte:
+```bash
+git checkout -b mi-feature
+# ... trabajás y commiteás ...
+git push -u origin mi-feature
+```
+y después abrís un Pull Request en GitHub.
+
+---
+
+## Notas importantes
+
+- **Base de datos compartida:** hoy la app local apunta a la MISMA base de
+  Supabase que producción. Lo que toques (o los seeds que corras) afecta los
+  datos reales. Tener cuidado con eso.
+- **Las tablas de Supabase están en inglés:** `barbershops`, `profiles`,
+  `cuts`, `services`, `cash_register_sessions`. No asumir nombres en español.
+- **El proyecto está deployado en Vercel.** Re-deploy: `npx vercel --prod`.
+
+## Estructura
+
+```
+src/
+  app/            Router y providers
+  features/
+    auth/         Login del local, selector de perfiles, PIN
+    barber/       Panel del barbero (registro de cortes)
+    dashboard/    Panel del dueño (métricas, cierre de caja, administración)
+  shared/         Tipos, cliente de Supabase, componentes y utilidades comunes
+scripts/          Migraciones SQL y seeds (requieren SERVICE_ROLE_KEY)
 ```
