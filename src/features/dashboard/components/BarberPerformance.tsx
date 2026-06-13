@@ -23,11 +23,15 @@ export function BarberPerformance({ barbers, ownerId }: BarberPerformanceProps) 
 
   const topTotal = barbers[0]?.total ?? 0;
 
+  // Colores del podio: oro / plata / bronce para los primeros tres.
+  const PODIUM = ['bg-[#C9A84C] text-[#0a0a0a]', 'bg-[#C0C7D0] text-[#0a0a0a]', 'bg-[#CD8B5B] text-[#0a0a0a]'];
+
   return (
     <div className="space-y-2.5">
       {barbers.map((b, i) => {
         // Barra relativa al barbero #1 (ranking).
         const pct = topTotal > 0 ? Math.round((b.total / topTotal) * 100) : 0;
+        const badgeClass = i < 3 ? PODIUM[i] : 'bg-white/10 text-[#a1a1aa]';
         return (
           <motion.button
             key={b.barberId}
@@ -38,9 +42,7 @@ export function BarberPerformance({ barbers, ownerId }: BarberPerformanceProps) 
             <div className="flex items-center justify-between gap-3 mb-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span
-                  className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-semibold shrink-0 ${
-                    i === 0 ? 'bg-[#C9A84C] text-[#0a0a0a]' : 'bg-white/10 text-[#a1a1aa]'
-                  }`}
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-semibold shrink-0 ${badgeClass}`}
                 >
                   {i === 0 ? <Trophy className="w-3.5 h-3.5" /> : i + 1}
                 </span>

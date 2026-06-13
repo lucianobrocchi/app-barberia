@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { startOfWeek, subWeeks } from 'date-fns';
-import { LogOut, Users, CreditCard, Activity, Bell, Lock, Archive, ChevronRight, Settings, Plus, CalendarDays, Clock, Scissors, BarChart3 } from 'lucide-react';
+import { LogOut, Users, CreditCard, Activity, Bell, Lock, Archive, ChevronRight, Settings, Plus, CalendarDays, Clock, Scissors, BarChart3, Flame } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { usePeriodStats, type Period } from './hooks/usePeriodStats';
@@ -26,6 +26,8 @@ import { MonthProjection } from './components/MonthProjection';
 import { MonthChart } from './components/MonthChart';
 import { HoraPicoChart } from './components/HoraPicoChart';
 import { ServiciosTop } from './components/ServiciosTop';
+import { RecordsPanel } from './components/RecordsPanel';
+import { useRecords } from './hooks/useRecords';
 
 const PERIOD_LABEL: Record<Period, string> = {
   today: 'hoy',
@@ -80,6 +82,8 @@ export function DashboardPage() {
   const { alerts, isLoading: alertsLoading } = useTodayAlerts(profile?.barbershop_id);
   const { existing: cierreHoy } = useCierreDia(profile?.barbershop_id);
   const { hasDemo, count: demoCount } = useDemoStatus(profile?.barbershop_id);
+  // Récords/rachas: solo se consultan en la pestaña Mes (histórico de 180 días).
+  const records = useRecords(period === 'month' ? shopIds : []);
 
   async function handleSignOut() {
     await signOut();
@@ -200,6 +204,20 @@ export function DashboardPage() {
             <SectionTitle icon={BarChart3}>Tu mes</SectionTitle>
             <MonthProjection cuts={stats.cuts} />
             <MonthChart cuts={stats.cuts} />
+          </motion.section>
+        )}
+
+        {/* 2c) Récords y rachas — histórico (SOLO en la pestaña Mes) */}
+        {period === 'month' && !stats.isLoading && !records.isLoading && (
+          <motion.section
+            key={`records-${local}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-3"
+          >
+            <SectionTitle icon={Flame}>Récords y rachas</SectionTitle>
+            <RecordsPanel records={records} />
           </motion.section>
         )}
 
