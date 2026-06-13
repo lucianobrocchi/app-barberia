@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { supabase } from '@/shared/lib/supabase';
 import type { Cut, Service, Profile, PaymentMethod } from '@/shared/types';
+import type { ServicioTop } from '../cierreTypes';
 
 export type Period = 'today' | 'week' | 'month';
 
@@ -167,6 +168,17 @@ export function usePeriodStats(
     byPayment[m].total += Number(c.price);
   }
 
+  // Servicios más hechos en el período (para ServiciosTop).
+  const byServiceMap = new Map<string, ServicioTop>();
+  for (const c of cuts) {
+    const id = c.service?.id ?? c.service_id;
+    const nombre = c.service?.name ?? 'Sin servicio';
+    const curS = byServiceMap.get(id) ?? { servicio_id: id, nombre, cantidad: 0 };
+    curS.cantidad += 1;
+    byServiceMap.set(id, curS);
+  }
+  const byService = [...byServiceMap.values()].sort((a, b) => b.cantidad - a.cantidad);
+
   return {
     cuts,
     total,
@@ -175,6 +187,7 @@ export function usePeriodStats(
     ganancia,
     byBarber,
     byPayment,
+    byService,
     barbersActive,
     barbersTotal,
     prevDelta,

@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { DEMO_USERS, initials } from '@/features/auth/data/demoUsers';
 import { PinKeypad } from '@/features/auth/components/PinKeypad';
 import { hashPin } from '@/features/auth/lib/pin';
+import { DemoSection } from '@/features/demo/DemoSection';
 
 interface BarberRow {
   id: string;
@@ -242,6 +243,11 @@ export function ConfiguracionPage() {
                 </button>
               )}
             </section>
+
+            {/* ── DATOS DE DEMO ── */}
+            {profile?.barbershop_id && (
+              <DemoSection barbershopId={profile.barbershop_id} ownerId={profile.id} />
+            )}
           </>
         )}
       </main>

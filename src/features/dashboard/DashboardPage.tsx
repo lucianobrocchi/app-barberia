@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { startOfWeek, subWeeks } from 'date-fns';
-import { LogOut, Users, CreditCard, Activity, Bell, Lock, Archive, ChevronRight, Settings, Plus, CalendarDays } from 'lucide-react';
+import { LogOut, Users, CreditCard, Activity, Bell, Lock, Archive, ChevronRight, Settings, Plus, CalendarDays, Clock, Scissors, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { usePeriodStats, type Period } from './hooks/usePeriodStats';
@@ -20,6 +20,12 @@ import { AlertsPanel } from './components/AlertsPanel';
 import { DaySelector } from './components/DaySelector';
 import { WeekChart } from './components/WeekChart';
 import { ShopDayDetailPanel } from './components/ShopDayDetailPanel';
+import { DemoBanner } from '@/features/demo/DemoBanner';
+import { useDemoStatus } from '@/features/demo/useDemoStatus';
+import { MonthProjection } from './components/MonthProjection';
+import { MonthChart } from './components/MonthChart';
+import { HoraPicoChart } from './components/HoraPicoChart';
+import { ServiciosTop } from './components/ServiciosTop';
 
 const PERIOD_LABEL: Record<Period, string> = {
   today: 'hoy',
@@ -73,6 +79,7 @@ export function DashboardPage() {
 
   const { alerts, isLoading: alertsLoading } = useTodayAlerts(profile?.barbershop_id);
   const { existing: cierreHoy } = useCierreDia(profile?.barbershop_id);
+  const { hasDemo, count: demoCount } = useDemoStatus(profile?.barbershop_id);
 
   async function handleSignOut() {
     await signOut();
@@ -115,6 +122,11 @@ export function DashboardPage() {
       </header>
 
       <main className="px-5 pt-5 max-w-2xl mx-auto w-full space-y-8">
+        {/* Aviso de modo demo */}
+        {hasDemo && (
+          <DemoBanner count={demoCount} onClick={() => navigate('/dashboard/configuracion')} />
+        )}
+
         {/* Registrar mi corte (el dueño también corta) */}
         <button
           onClick={() => navigate('/dashboard/nuevo-corte')}
@@ -176,6 +188,21 @@ export function DashboardPage() {
           </section>
         )}
 
+        {/* 2b) Mes — proyección + facturación día por día (SOLO en la pestaña Mes) */}
+        {period === 'month' && !stats.isLoading && (
+          <motion.section
+            key={`mes-${local}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-3"
+          >
+            <SectionTitle icon={BarChart3}>Tu mes</SectionTitle>
+            <MonthProjection cuts={stats.cuts} />
+            <MonthChart cuts={stats.cuts} />
+          </motion.section>
+        )}
+
         {/* 3) Resto del período (hora pico más abajo, lejos del calendario) */}
         {!stats.isLoading && (
           <motion.div
@@ -202,6 +229,20 @@ export function DashboardPage() {
               <SectionTitle icon={CreditCard}>Métodos de pago</SectionTitle>
               <MetodosPagoDonut byPayment={stats.byPayment} total={stats.total} />
             </section>
+
+            {/* Hora pico y servicios top — enriquecen el mes */}
+            {period === 'month' && (
+              <>
+                <section>
+                  <SectionTitle icon={Clock}>Hora pico</SectionTitle>
+                  <HoraPicoChart cuts={stats.cuts} />
+                </section>
+                <section>
+                  <SectionTitle icon={Scissors}>Servicios más pedidos</SectionTitle>
+                  <ServiciosTop servicios={stats.byService.slice(0, 5)} />
+                </section>
+              </>
+            )}
 
             {/* Actividad reciente */}
             <section>

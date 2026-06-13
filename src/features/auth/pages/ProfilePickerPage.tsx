@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scissors, Crown, Lock, X, LogOut } from 'lucide-react';
+import { Scissors, Crown, Lock, X, LogOut, HelpCircle } from 'lucide-react';
 import { supabase } from '@/shared/lib/supabase';
 import { useAuthStore } from '../hooks/useAuthStore';
 import { getBarberiaId, clearBarberiaId } from '../lib/localAuth';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import { Onboarding } from '@/features/onboarding/Onboarding';
+import { hasSeenOnboarding } from '@/features/onboarding/onboardingState';
 import { DEMO_USERS, DEMO_PASSWORD, initials, type DemoUser } from '../data/demoUsers';
 import { PinKeypad } from '../components/PinKeypad';
 import { verifyPin } from '../lib/pin';
@@ -16,6 +18,9 @@ export function ProfilePickerPage() {
   const { setUser, setProfile, setLoading } = useAuthStore();
   const [loadingEmail, setLoadingEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Onboarding: se muestra solo la primera vez. Reabrible desde "¿Cómo funciona?".
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
 
   // Modal de contraseña del dueño
   const [ownerModal, setOwnerModal] = useState(false);
@@ -228,8 +233,16 @@ export function ProfilePickerPage() {
           </div>
         </div>
 
-        {/* Cerrar sesión del local (discreto) */}
-        <div className="mt-12 flex justify-center">
+        {/* Acciones discretas: ayuda + cerrar sesión del local */}
+        <div className="mt-12 flex items-center justify-center gap-5">
+          <button
+            onClick={() => setShowOnboarding(true)}
+            className="flex items-center gap-1.5 text-xs text-[#6b6b72] hover:text-[#a1a1aa] transition-colors"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            ¿Cómo funciona?
+          </button>
+          <span className="w-px h-3 bg-white/10" />
           <button
             onClick={logoutLocal}
             className="flex items-center gap-1.5 text-xs text-[#6b6b72] hover:text-[#a1a1aa] transition-colors"
@@ -240,6 +253,8 @@ export function ProfilePickerPage() {
         </div>
 
       </div>
+
+      <Onboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} />
 
       {/* Modal PIN del barbero */}
       <AnimatePresence>
