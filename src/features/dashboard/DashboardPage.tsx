@@ -5,6 +5,7 @@ import { startOfWeek, subWeeks } from 'date-fns';
 import { LogOut, Users, CreditCard, Activity, Bell, Lock, Archive, ChevronRight, Settings, Plus, CalendarDays, Clock, Scissors, BarChart3, Flame } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import { useBarbershop, shortName } from '@/shared/hooks/useBarbershop';
 import { usePeriodStats, type Period } from './hooks/usePeriodStats';
 import { useTodayAlerts } from './hooks/useTodayAlerts';
 import { useCierreDia } from './hooks/useCierreDia';
@@ -82,6 +83,7 @@ export function DashboardPage() {
   const { alerts, isLoading: alertsLoading } = useTodayAlerts(profile?.barbershop_id);
   const { existing: cierreHoy } = useCierreDia(profile?.barbershop_id);
   const { hasDemo, count: demoCount } = useDemoStatus(profile?.barbershop_id);
+  const barbershop = useBarbershop(profile?.barbershop_id);
   // Récords/rachas: solo se consultan en la pestaña Mes (histórico de 180 días).
   const records = useRecords(period === 'month' ? shopIds : []);
 
@@ -100,7 +102,7 @@ export function DashboardPage() {
           <BrandLogo className="w-10 h-10" />
           <div>
             <p className="text-[10px] tracking-[0.18em] uppercase text-[#a1a1aa] font-medium">
-              <span className="text-[#C9A84C]">Bacano</span> · Dueño
+              <span className="text-[#C9A84C]">{shortName(barbershop?.name)}</span> · Dueño
             </p>
             <p className="font-semibold text-white leading-tight">
               {profile.full_name.split(' ')[0]}

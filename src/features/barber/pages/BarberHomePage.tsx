@@ -5,6 +5,7 @@ import { startOfWeek } from 'date-fns';
 import { LogOut, Plus, Trophy, CalendarDays, Flame, Scissors } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import { useBarbershop, shortName } from '@/shared/hooks/useBarbershop';
 import { useTodayCuts } from '../hooks/useTodayCuts';
 import { useBarberRanking } from '../hooks/useBarberRanking';
 import { DaySummaryCards } from '../components/DaySummaryCards';
@@ -29,6 +30,7 @@ export function BarberHomePage() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const { cuts, total, count, isLoading } = useTodayCuts(profile?.id);
+  const barbershop = useBarbershop(profile?.barbershop_id);
 
   const ranking = useBarberRanking(profile?.barbershop_id, profile?.id);
 
@@ -54,7 +56,7 @@ export function BarberHomePage() {
           <BrandLogo className="w-10 h-10" />
           <div>
             <p className="text-[10px] tracking-[0.18em] uppercase text-[#a1a1aa] font-medium">
-              <span className="text-[#C9A84C]">Bacano</span>
+              <span className="text-[#C9A84C]">{shortName(barbershop?.name)}</span>
             </p>
             <p className="font-semibold text-white leading-tight">
               Hola, {profile.full_name.split(' ')[0]}
