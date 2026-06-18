@@ -1,16 +1,43 @@
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LogOut, Plus } from 'lucide-react';
+import { startOfWeek } from 'date-fns';
+import { LogOut, Plus, Trophy, CalendarDays, Flame, Scissors } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { useTodayCuts } from '../hooks/useTodayCuts';
+import { useBarberRanking } from '../hooks/useBarberRanking';
 import { DaySummaryCards } from '../components/DaySummaryCards';
 import { CutsList } from '../components/CutsList';
+import { BarberRankCard } from '../components/BarberRankCard';
+import { useBarberWeekData } from '@/features/dashboard/hooks/useBarberWeekData';
+import { WeekChart } from '@/features/dashboard/components/WeekChart';
+import { DayDetailPanel } from '@/features/dashboard/components/DayDetailPanel';
+import { RecordsPanel } from '@/features/dashboard/components/RecordsPanel';
+import { useRecords } from '@/features/dashboard/hooks/useRecords';
+
+function SectionTitle({ icon: Icon, children }: { icon: typeof Trophy; children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2 text-sm font-medium text-[#a1a1aa] mb-3">
+      <Icon className="w-4 h-4" />
+      {children}
+    </h2>
+  );
+}
 
 export function BarberHomePage() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const { cuts, total, count, isLoading } = useTodayCuts(profile?.id);
+
+  const ranking = useBarberRanking(profile?.barbershop_id, profile?.id);
+
+  const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const week = useBarberWeekData(profile?.id, weekStart);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const selectedDay = week.days.find((d) => d.key === selectedDayKey && d.count > 0) ?? null;
+
+  const records = useRecords(profile?.barbershop_id ? [profile.barbershop_id] : [], profile?.id);
 
   async function handleSignOut() {
     await signOut();
@@ -43,11 +70,42 @@ export function BarberHomePage() {
         </button>
       </header>
 
-      <main className="px-5 pt-4 max-w-md mx-auto w-full space-y-6">
-        <DaySummaryCards count={count} total={total} />
+      <main className="px-5 pt-4 max-w-md mx-auto w-full space-y-8">
+        {/* Hoy */}
+        <section className="space-y-3">
+          <DaySummaryCards count={count} total={total} />
+          {!ranking.isLoading && <BarberRankCard ranking={ranking} />}
+        </section>
 
+        {/* Tu semana */}
         <section>
-          <h2 className="text-sm font-medium text-[#a1a1aa] mb-3">Cortes de hoy</h2>
+          <SectionTitle icon={CalendarDays}>Tu semana</SectionTitle>
+          {week.isLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="w-6 h-6 border-2 border-[#C9A84C] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <WeekChart days={week.days} selectedKey={selectedDayKey} onSelectDay={setSelectedDayKey} />
+              {!selectedDay && (
+                <p className="text-center text-[11px] text-[#71717a]">Tocá un día para ver el detalle</p>
+              )}
+              {selectedDay && <DayDetailPanel key={selectedDay.key} day={selectedDay} />}
+            </div>
+          )}
+        </section>
+
+        {/* Tus récords */}
+        {!records.isLoading && (
+          <section>
+            <SectionTitle icon={Flame}>Tus récords</SectionTitle>
+            <RecordsPanel records={records} />
+          </section>
+        )}
+
+        {/* Cortes de hoy */}
+        <section>
+          <SectionTitle icon={Scissors}>Cortes de hoy</SectionTitle>
           <CutsList cuts={cuts} isLoading={isLoading} />
         </section>
       </main>

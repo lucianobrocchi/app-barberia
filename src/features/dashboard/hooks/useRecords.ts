@@ -37,20 +37,23 @@ const EMPTY: Records = {
   isLoading: true,
 };
 
-export function useRecords(shopIds: string[]): Records {
+export function useRecords(shopIds: string[], barberId?: string): Records {
   const [records, setRecords] = useState<Records>(EMPTY);
-  const key = shopIds.join(',');
+  const key = shopIds.join(',') + '|' + (barberId ?? '');
 
   const fetchData = useCallback(async () => {
     if (shopIds.length === 0) return;
     setRecords((r) => ({ ...r, isLoading: true }));
 
     const from = startOfDay(subDays(new Date(), HISTORY_DAYS - 1));
-    const { data } = await supabase
+    let query = supabase
       .from('cuts')
       .select('price, performed_at')
       .in('barbershop_id', shopIds)
       .gte('performed_at', from.toISOString());
+    // Récords de un barbero puntual (panel del barbero) vs del local (dueño).
+    if (barberId) query = query.eq('barber_id', barberId);
+    const { data } = await query;
 
     // Agregamos por día.
     const byDay = new Map<string, DayAgg>();
