@@ -3,6 +3,12 @@
 App de gestión para barberías (Vite + React 19 + Supabase + Tailwind + framer-motion).
 Hoy corre para **Barbería Bacano**; el objetivo es volverla **SaaS multi-barbería vendible**.
 
+## 🎯 Norte (visión de producto)
+
+Dejarla **lista para ofrecer, con todas las funcionalidades**, pensada para escalar a **miles de barberías**. Más adelante, expandir el mismo producto a rubros relacionados: **centros de estética, uñas y servicios afines** (cualquier negocio de servicios con turnos, profesionales y cobros).
+
+Implicancia para las decisiones técnicas: priorizar lo **multi-tenant, genérico y auto-servicio**. El modelo de datos ya es bastante agnóstico (`services`, `cuts`/atenciones, `profiles`/profesionales) — al construir, evitar clavar cosas a "barbería/corte/barbero" y dejarlo configurable por rubro, para que mañana una peluquería de uñas use lo mismo. Cada cliente tiene que poder darse de alta y autogestionarse sin que nosotros toquemos nada.
+
 - **Repo de trabajo**: `lucianobrocchi/app-barberia` (privado). Deploya solo a Vercel: **https://app-barberia-red.vercel.app/**
 - **Supabase**: proyecto `xoqalcgrwrwxikqkhapp` (lo administra rabita). El `.env` (no commiteado) necesita `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. En Vercel ya están seteadas.
 - Correr local: `npm install` → crear `.env` con esas dos vars → `npm run dev` (puerto 5174).
