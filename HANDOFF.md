@@ -40,10 +40,20 @@ Si la app queda en blanco tras deployar sin la migración: faltan los RPC. Corre
 - **Modelo de auth = one-tap + PIN** (generalizado por barbería). El acceso real lo cuidan el login del local (usuario/contraseña por barbería) + el PIN de cada barbero. La `app_password` por barbería es plomería interna para el one-tap (nadie la tipea). El dueño entra con su contraseña.
 - ⚠️ La vieja `barberos_para_login()` devolvía TODOS los perfiles de TODAS las barberías (fuga en multi-tenant). La v2 está scopeada por `barbershop_id`.
 
-## Roadmap pendiente
+## Roadmap priorizado → "vendible"
 
-- **Fase 3 — Provisioning / panel de gestión**: alta y gestión de barberías clientes, y que cada dueño agregue/quite barberos. Necesita **backend seguro** (Edge Function con service-role) porque crear/borrar usuarios auth no se puede desde el cliente anon. Editar/desactivar barberos ya funciona en *Administración*.
-- **Demo auto-fresh**: las fechas de la demo se hornean al seedear y envejecen. Falta un job programado (cron/Edge Function) que recargue una barbería demo con fechas de hoy. (Hoy la data de demo está vieja: último corte ~14/6.)
+Orden sugerido para llegar a un SaaS que se pueda ofrecer y autogestionar. Cada paso desbloquea al siguiente.
+
+1. **Fase 2 — Des-hardcodear el tenant** *(en curso, esta branch)*. Migración + ProfilePicker dinámico. Sin esto solo se puede vender "Bacano". **Desbloquea**: que la app sea cualquier barbería.
+2. **Fase 3 — Backend de provisioning** (Edge Function con service-role). Crear/borrar barberías y usuarios (dueño + barberos). Crear/borrar auth users no se puede desde el cliente anon. **Desbloquea**: alta de clientes y que el dueño autogestione su equipo. (Editar/desactivar barberos ya funciona.)
+3. **Panel superadmin** (para nosotros). Dar de alta y administrar barberías clientes usando el backend del paso 2. **Desbloquea**: onboarding manual de los primeros clientes.
+4. **Auto-alta del cliente** (signup). Que una barbería se registre sola: usuario/contraseña del local, marca/logo, servicios y barberos iniciales. **Desbloquea**: escala sin que toquemos nada (el norte: auto-servicio).
+5. **Cobros / suscripción**. Billing por barbería (MercadoPago/Stripe), planes, estado activo/suspendido. **Desbloquea**: monetizar.
+6. **Demo auto-fresh**. Job programado que recarga una barbería demo con fechas de hoy, para que el pitch nunca se vea viejo. (Hoy la data demo está vieja: último corte ~14/6.) Independiente; se puede hacer en cualquier momento.
+7. **Genérico por rubro**. Parametrizar "servicios / profesionales / atenciones" y la marca por tipo de negocio, para soportar **estética, uñas y afines** sin reescribir. **Desbloquea**: la expansión del norte.
+8. **Pulido para escala**. Performance (code-split del bundle ~236KB), métricas/observabilidad, límites por plan, soporte.
+
+**Pendientes sueltos** (no bloquean, encajar donde convenga):
 - **Simplificar credenciales**: dejar la `app_password` invisible y que el dueño tenga su propia contraseña cambiable (hoy comparte la interna).
 
 ## Notas técnicas
