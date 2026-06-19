@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { loginLocal, getBarberiaId, setBarberiaId } from '../lib/localAuth';
+import { loginLocal, getBarberiaId, setLocalSession } from '../lib/localAuth';
 
 /**
  * Pantalla de login del LOCAL — aparece ANTES del selector de perfiles.
@@ -26,9 +26,9 @@ export function LocalLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const id = await loginLocal(usuario, password);
-      if (id) {
-        setBarberiaId(id);
+      const session = await loginLocal(usuario, password);
+      if (session) {
+        setLocalSession(session);
         navigate('/', { replace: true });
       } else {
         setError('Usuario o contraseña incorrectos.');

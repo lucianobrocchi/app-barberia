@@ -277,6 +277,14 @@ export type Database = {
         Args: { p_usuario: string; p_password_hash: string };
         Returns: string | null;
       };
+      login_local_v2: {
+        Args: { p_usuario: string; p_password_hash: string };
+        Returns: { barbershop_id: string; app_password: string; name: string; logo_url: string | null }[];
+      };
+      barberos_para_login_v2: {
+        Args: { p_barbershop_id: string };
+        Returns: { id: string; full_name: string; role: 'owner' | 'barber'; is_active: boolean; email: string }[];
+      };
     };
     Enums: {
       user_role: 'owner' | 'barber';

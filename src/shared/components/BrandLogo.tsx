@@ -6,10 +6,11 @@ import { Scissors } from 'lucide-react';
  * Usa la imagen en /public/logo-bacano.png. Si todavía no está el archivo,
  * cae al ícono de tijera dorado (look actual) — así nunca se ve roto.
  */
-export function BrandLogo({ className = 'w-10 h-10' }: { className?: string }) {
+export function BrandLogo({ className = 'w-10 h-10', src }: { className?: string; src?: string }) {
   const [failed, setFailed] = useState(false);
+  const logoSrc = src || '/logo-bacano.jpg';
 
-  if (failed) {
+  if (failed || !logoSrc) {
     return (
       <div
         className={`${className} rounded-full bg-gradient-to-br from-[#E0C766] to-[#A8842F] flex items-center justify-center shadow-md shadow-[#C9A84C]/20 ring-1 ring-white/10`}
@@ -21,8 +22,8 @@ export function BrandLogo({ className = 'w-10 h-10' }: { className?: string }) {
 
   return (
     <img
-      src="/logo-bacano.jpg"
-      alt="Barbería Bacano"
+      src={logoSrc}
+      alt="Logo barbería"
       onError={() => setFailed(true)}
       className={`${className} rounded-full object-cover ring-1 ring-white/10 shadow-md shadow-[#C9A84C]/20`}
     />

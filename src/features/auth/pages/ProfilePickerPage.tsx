@@ -4,20 +4,36 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Scissors, Crown, Lock, X, LogOut, HelpCircle } from 'lucide-react';
 import { supabase } from '@/shared/lib/supabase';
 import { useAuthStore } from '../hooks/useAuthStore';
-import { getBarberiaId, clearBarberiaId } from '../lib/localAuth';
+import { getLocalSession, clearBarberiaId, type LocalSession } from '../lib/localAuth';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { hasSeenOnboarding } from '@/features/onboarding/onboardingState';
-import { DEMO_USERS, DEMO_PASSWORD, initials, type DemoUser } from '../data/demoUsers';
 import { PinKeypad } from '../components/PinKeypad';
 import { verifyPin } from '../lib/pin';
+import { initials, colorForId } from '@/shared/lib/utils';
 import type { Profile } from '@/shared/types';
+
+/** Perfil para el selector, traído de barberos_para_login_v2 (sin pin_hash). */
+interface LoginProfile {
+  id: string;
+  full_name: string;
+  role: 'owner' | 'barber';
+  is_active: boolean;
+  email: string;
+}
 
 export function ProfilePickerPage() {
   const navigate = useNavigate();
   const { setUser, setProfile, setLoading } = useAuthStore();
-  const [loadingEmail, setLoadingEmail] = useState<string | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sesión del local (id + clave interna + marca). Sin ella, al login del local.
+  const [session] = useState<LocalSession | null>(() => getLocalSession());
+
+  // Perfiles de ESTA barbería, desde la base.
+  const [profiles, setProfiles] = useState<LoginProfile[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
 
   // Onboarding: se muestra solo la primera vez. Reabrible desde "¿Cómo funciona?".
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
@@ -29,39 +45,39 @@ export function ProfilePickerPage() {
   const [ownerLoading, setOwnerLoading] = useState(false);
 
   // Modal de PIN del barbero (solo si tiene PIN configurado)
-  const [pinBarber, setPinBarber] = useState<{ user: DemoUser; uid: string; hash: string } | null>(null);
+  const [pinBarber, setPinBarber] = useState<{ profile: LoginProfile; uid: string; hash: string } | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinReset, setPinReset] = useState(0);
   const [pinChecking, setPinChecking] = useState(false);
 
   // Guard: si el local no tiene sesión iniciada, volver al login del local.
   useEffect(() => {
-    if (!getBarberiaId()) navigate('/local', { replace: true });
-  }, [navigate]);
+    if (!session) navigate('/local', { replace: true });
+  }, [session, navigate]);
 
   function logoutLocal() {
     clearBarberiaId();
     navigate('/local', { replace: true });
   }
 
-  // Nombres/estado en vivo desde la base (función segura, sin pin_hash). Si la
-  // migración no corrió todavía, queda vacío y se usan los nombres por defecto.
-  const [live, setLive] = useState<Record<string, { full_name: string; is_active: boolean }>>({});
+  // Carga los perfiles de la barbería logueada.
   useEffect(() => {
-    supabase.rpc('barberos_para_login').then(({ data }) => {
-      if (!data) return;
-      const m: Record<string, { full_name: string; is_active: boolean }> = {};
-      for (const r of data) {
-        m[r.id] = { full_name: r.full_name, is_active: r.is_active };
-      }
-      setLive(m);
-    });
-  }, []);
-  const nameOf = (u: DemoUser) => live[u.id]?.full_name ?? u.name;
+    if (!session) return;
+    setLoadingProfiles(true);
+    supabase
+      .rpc('barberos_para_login_v2', { p_barbershop_id: session.id })
+      .then(({ data, error }) => {
+        if (error) {
+          setError('No se pudieron cargar los perfiles.');
+        } else {
+          setProfiles((data ?? []) as LoginProfile[]);
+        }
+        setLoadingProfiles(false);
+      });
+  }, [session]);
 
-  const owner = DEMO_USERS.find((u) => u.role === 'owner');
-  // Ocultamos barberos desactivados (is_active === false).
-  const barbers = DEMO_USERS.filter((u) => u.role === 'barber' && live[u.id]?.is_active !== false);
+  const owner = profiles.find((p) => p.role === 'owner');
+  const barbers = profiles.filter((p) => p.role === 'barber' && p.is_active);
 
   // Deja el estado de auth listo ANTES de navegar, para que el guardián de
   // rutas no vea estado viejo y rebote (evita el "hay que tocar dos veces").
@@ -79,34 +95,33 @@ export function ProfilePickerPage() {
   }
 
   // Barberos: un toque. Si tiene PIN configurado, pedimos PIN antes de entrar.
-  async function pickBarber(user: DemoUser) {
+  async function pickBarber(p: LoginProfile) {
+    if (!session) return;
     setError(null);
-    setLoadingEmail(user.email);
+    setLoadingId(p.id);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: DEMO_PASSWORD,
+        email: p.email,
+        password: session.appPassword,
       });
       if (error) throw error;
       const uid = data.user!.id;
 
-      // Leemos el perfil para ver si tiene PIN. select('*') es resiliente:
-      // si la columna pin_hash todavía no existe, pin_hash queda undefined.
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', uid).single();
       const pinHash = (profile as Profile & { pin_hash?: string | null })?.pin_hash;
 
       if (pinHash) {
         // Tiene PIN: queda autenticado pero no navegamos hasta validar el PIN.
-        setPinBarber({ user, uid, hash: pinHash });
+        setPinBarber({ profile: p, uid, hash: pinHash });
         setPinError(null);
         setPinReset((n) => n + 1);
-        setLoadingEmail(null);
+        setLoadingId(null);
       } else {
         await hydrateAndGo(uid, '/barber');
       }
     } catch {
-      setError(`No se pudo entrar como ${nameOf(user)}.`);
-      setLoadingEmail(null);
+      setError(`No se pudo entrar como ${p.full_name}.`);
+      setLoadingId(null);
     }
   }
 
@@ -158,14 +173,16 @@ export function ProfilePickerPage() {
     setOwnerLoading(false);
   }
 
+  const brandName = session?.name?.replace(/^barber[ií]a\s+/i, '') || session?.name || 'Barbería';
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-10">
       <div className="max-w-md mx-auto">
         {/* Marca */}
         <div className="flex flex-col items-center mb-10">
-          <BrandLogo className="w-16 h-16 mb-4" />
+          <BrandLogo className="w-16 h-16 mb-4" src={session?.logoUrl ?? undefined} />
           <p className="text-[11px] tracking-[0.35em] text-[#C9A84C] font-medium pl-[0.35em]">BARBERÍA</p>
-          <h1 className="font-display text-4xl text-white leading-none mt-0.5">Bacano</h1>
+          <h1 className="font-display text-4xl text-white leading-none mt-0.5">{brandName}</h1>
           <p className="text-sm text-[#a1a1aa] mt-4">¿Quién sos? Elegí tu perfil</p>
         </div>
 
@@ -175,63 +192,71 @@ export function ProfilePickerPage() {
           </div>
         )}
 
-        {/* Dueño */}
-        {owner && (
-          <div className="mb-8">
-            <p className="text-xs font-medium text-[#a1a1aa] mb-3 flex items-center gap-1.5">
-              <Crown className="w-3.5 h-3.5 text-[#C9A84C]" /> Dueño
-            </p>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setOwnerModal(true)}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl border border-white/10 bg-white/[0.03] hover:border-white/20 transition-colors"
-            >
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center font-semibold text-lg shrink-0"
-                style={{ backgroundColor: owner.color, color: '#0a0a0a' }}
-              >
-                {initials(nameOf(owner))}
-              </div>
-              <div className="text-left min-w-0 flex-1">
-                <p className="font-medium text-white text-base truncate">{nameOf(owner)}</p>
-                <p className="text-xs text-[#a1a1aa]">Ver panel del dueño</p>
-              </div>
-              <Lock className="w-4 h-4 text-[#a1a1aa] shrink-0" />
-            </motion.button>
+        {loadingProfiles ? (
+          <div className="flex justify-center py-16">
+            <div className="w-7 h-7 border-2 border-[#C9A84C] border-t-transparent rounded-full animate-spin" />
           </div>
-        )}
-
-        {/* Barberos */}
-        <div>
-          <p className="text-xs font-medium text-[#a1a1aa] mb-3 flex items-center gap-1.5">
-            <Scissors className="w-3.5 h-3.5" /> Barberos
-          </p>
-          <div className="grid grid-cols-3 gap-3">
-            {barbers.map((b) => (
-              <motion.button
-                key={b.email}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => pickBarber(b)}
-                disabled={loadingEmail !== null}
-                className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-white/10 bg-white/[0.03] hover:border-white/20 disabled:opacity-50 transition-colors"
-              >
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center font-semibold text-xl shrink-0 text-white"
-                  style={{ backgroundColor: b.color }}
-                >
-                  {loadingEmail === b.email ? (
-                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    initials(nameOf(b))
-                  )}
-                </div>
-                <p className="font-medium text-white text-xs truncate w-full text-center">
-                  {nameOf(b).split(' ')[0]}
+        ) : (
+          <>
+            {/* Dueño */}
+            {owner && (
+              <div className="mb-8">
+                <p className="text-xs font-medium text-[#a1a1aa] mb-3 flex items-center gap-1.5">
+                  <Crown className="w-3.5 h-3.5 text-[#C9A84C]" /> Dueño
                 </p>
-              </motion.button>
-            ))}
-          </div>
-        </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setOwnerModal(true)}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl border border-white/10 bg-white/[0.03] hover:border-white/20 transition-colors"
+                >
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center font-semibold text-lg shrink-0"
+                    style={{ backgroundColor: '#C9A84C', color: '#0a0a0a' }}
+                  >
+                    {initials(owner.full_name)}
+                  </div>
+                  <div className="text-left min-w-0 flex-1">
+                    <p className="font-medium text-white text-base truncate">{owner.full_name}</p>
+                    <p className="text-xs text-[#a1a1aa]">Ver panel del dueño</p>
+                  </div>
+                  <Lock className="w-4 h-4 text-[#a1a1aa] shrink-0" />
+                </motion.button>
+              </div>
+            )}
+
+            {/* Barberos */}
+            <div>
+              <p className="text-xs font-medium text-[#a1a1aa] mb-3 flex items-center gap-1.5">
+                <Scissors className="w-3.5 h-3.5" /> Barberos
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                {barbers.map((b) => (
+                  <motion.button
+                    key={b.id}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => pickBarber(b)}
+                    disabled={loadingId !== null}
+                    className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-white/10 bg-white/[0.03] hover:border-white/20 disabled:opacity-50 transition-colors"
+                  >
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center font-semibold text-xl shrink-0 text-white"
+                      style={{ backgroundColor: colorForId(b.id) }}
+                    >
+                      {loadingId === b.id ? (
+                        <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        initials(b.full_name)
+                      )}
+                    </div>
+                    <p className="font-medium text-white text-xs truncate w-full text-center">
+                      {b.full_name.split(' ')[0]}
+                    </p>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Acciones discretas: ayuda + cerrar sesión del local */}
         <div className="mt-12 flex items-center justify-center gap-5">
@@ -251,7 +276,6 @@ export function ProfilePickerPage() {
             Cerrar sesión del local
           </button>
         </div>
-
       </div>
 
       <Onboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} />
@@ -278,11 +302,11 @@ export function ProfilePickerPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center font-semibold shrink-0 text-white"
-                    style={{ backgroundColor: pinBarber.user.color }}
+                    style={{ backgroundColor: colorForId(pinBarber.profile.id) }}
                   >
-                    {initials(nameOf(pinBarber.user))}
+                    {initials(pinBarber.profile.full_name)}
                   </div>
-                  <p className="font-medium text-white">{nameOf(pinBarber.user).split(' ')[0]}</p>
+                  <p className="font-medium text-white">{pinBarber.profile.full_name.split(' ')[0]}</p>
                 </div>
                 <button
                   onClick={closePinModal}
@@ -328,12 +352,12 @@ export function ProfilePickerPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center font-semibold shrink-0"
-                    style={{ backgroundColor: owner.color, color: '#0a0a0a' }}
+                    style={{ backgroundColor: '#C9A84C', color: '#0a0a0a' }}
                   >
-                    {initials(nameOf(owner))}
+                    {initials(owner.full_name)}
                   </div>
                   <div>
-                    <p className="font-medium text-white">{owner.name}</p>
+                    <p className="font-medium text-white">{owner.full_name}</p>
                     <p className="text-xs text-[#a1a1aa]">Ingresá tu contraseña</p>
                   </div>
                 </div>
