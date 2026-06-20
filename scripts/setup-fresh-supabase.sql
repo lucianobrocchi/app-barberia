@@ -2,18 +2,17 @@
 -- ADDA App — SETUP COMPLETO en una Supabase NUEVA (de cero)
 -- Correr TODO de una vez en: Dashboard → SQL Editor → New query → Run.
 --
--- Incluye: esquema + índices + RLS + PIN por barbero + login del local +
+-- Crea TODO: esquema + índices + RLS + PIN por barbero + login del local +
 -- Fase 2 multi-tenant (RPCs v2) + la barbería Bacano con credenciales +
--- servicios por defecto. NO crea los usuarios (eso lo hace el seed por
--- service-role: ver paso siguiente en HANDOFF / abajo).
+-- servicios + LOS USUARIOS (dueño Juani + 6 barberos, con sus perfiles).
+-- No hace falta correr ningún seed aparte ni pasar service-role.
 --
--- Después de correr esto:
---   1) Crear .env.local con VITE_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (del
---      proyecto nuevo) y correr:  npx tsx scripts/seed-demo-users.ts
---      (crea los usuarios auth + perfiles: dueño Juani + 6 barberos).
---   2) Apuntar la app: .env (VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY) y las
---      env vars de Vercel al proyecto nuevo. Redeploy.
---   3) Cargar datos de demo desde Administración (quedan con fechas de hoy).
+-- Credenciales que quedan:
+--   • Login del local:  usuario "bacano"  /  contraseña "bacano2026"
+--   • Dueño y barberos (one-tap / contraseña del dueño):  "AdDaApp2024!"
+--
+-- Después de correr esto, la app solo necesita apuntar a este proyecto
+-- (VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY en .env y en Vercel).
 -- ════════════════════════════════════════════════════════════════
 
 create extension if not exists pgcrypto;
@@ -268,6 +267,55 @@ insert into public.services (barbershop_id, name, price, display_order) values
   ('8bc02018-0fa4-41a2-b24d-4d6c375caf3d', 'Corte niño',     4500, 4),
   ('8bc02018-0fa4-41a2-b24d-4d6c375caf3d', 'Diseño / línea', 2500, 5);
 
--- Verificación:
+-- ════════════════════════════════════════════════════════════════
+-- USUARIOS — dueño + 6 barberos (auth.users + identities + profiles).
+-- Contraseña compartida 'AdDaApp2024!' (bcrypt vía pgcrypto). Emails y nombres
+-- de Barbería Bacano. Crea las cuentas directo en la base (sin admin API).
+-- ════════════════════════════════════════════════════════════════
+do $$
+declare
+  rec record;
+  v_bshop uuid := '8bc02018-0fa4-41a2-b24d-4d6c375caf3d';
+  v_pw text := 'AdDaApp2024!';
+begin
+  for rec in
+    select * from (values
+      ('8c00c074-728c-444a-8fef-dd80a66eda3f'::uuid, 'dueno@barberiabacano.com',  'Juani Bacano',  'owner'),
+      ('e6149a40-92e1-4b12-b76c-d876069d72ca'::uuid, 'barbero@barberiabacano.com','Lucas Barbero', 'barber'),
+      ('842a45f3-9a09-4881-a3a4-407039691872'::uuid, 'mateo@barberiabacano.com',  'Mateo Giménez', 'barber'),
+      ('c9479849-03da-43dc-af94-5bc5ab8545f1'::uuid, 'tomas@barberiabacano.com',  'Tomás Ríos',    'barber'),
+      ('860ef673-d0b9-41bc-86c3-3149f0bdb471'::uuid, 'nahuel@barberiabacano.com', 'Nahuel Sosa',   'barber'),
+      ('7a7096fe-581e-4ae5-92b1-25e25a7e84cd'::uuid, 'bruno@barberiabacano.com',  'Bruno Vega',    'barber'),
+      ('3e19e70e-b0ee-4ffc-85e1-027560789930'::uuid, 'ivan@barberiabacano.com',   'Iván Torres',   'barber')
+    ) as t(id, email, full_name, role)
+  loop
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, created_at, updated_at,
+      raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token, email_change_token_new, email_change
+    ) values (
+      '00000000-0000-0000-0000-000000000000', rec.id, 'authenticated', 'authenticated', rec.email,
+      crypt(v_pw, gen_salt('bf')),
+      now(), now(), now(),
+      '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
+      '', '', '', ''
+    );
+
+    insert into auth.identities (
+      id, user_id, provider_id, identity_data, provider,
+      last_sign_in_at, created_at, updated_at
+    ) values (
+      gen_random_uuid(), rec.id, rec.id::text,
+      jsonb_build_object('sub', rec.id::text, 'email', rec.email),
+      'email', now(), now(), now()
+    );
+
+    insert into public.profiles (id, barbershop_id, full_name, role, is_active)
+    values (rec.id, v_bshop, rec.full_name, rec.role::public.user_role, true);
+  end loop;
+end $$;
+
+-- Verificación (debería devolver la barbería y los 7 perfiles):
 -- select * from public.login_local_v2('bacano', encode(digest('adda-bacano-local-v1' || 'bacano2026','sha256'),'hex'));
--- (después del seed) select * from public.barberos_para_login_v2('8bc02018-0fa4-41a2-b24d-4d6c375caf3d');
+-- select * from public.barberos_para_login_v2('8bc02018-0fa4-41a2-b24d-4d6c375caf3d');
